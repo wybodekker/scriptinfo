@@ -1,0 +1,171 @@
+#!/bin/bash
+
+version=1.00
+myname=$(basename $0)
+
+<<'DOC'
+= scriptinfo - find script's type, version, short description
+
+= Synopsis
+scriptinfo [options] scriptname	
+
+Options:
+-h,--help	print this help and exit
+-H,--Help	print full documentation via less and exit
+-V,--version	print version and exit
+-b,--brief	print brief output for usage in scripts
+
+= Description
+For a script with /gendoc/ documentation, scriptinfo prints the script's 
+short description, type, version, intro, and changes.
+
+If the script has no path information and is not found, it is looked up in PATH.
+- type is found in the shebang line.
+- short description is found in the line starting with: |= <scriptname> - |
+- version must be on a single line and may be capitalized;
+  the first occurrence will be used.  Recognized formats are:
+    version = 1.23
+    $version = 1.23
+    my $version = 1.23
+    version => 1.23a
+    version = "1.23"
+    version = '1.23d'
+  Whitespace in these formats may be arbirarily long or absent,
+  including at the start of the line, anything may follow at the end,
+  but a single lower letter will be part of the version number.
+- intro is the first paragraph after the line starting with |= Description|
+- changes is the first paragraph after the line starting with |= Changes|
+
+The output of scriptinfo comes in two formats. The default is the long format,
+which for scriptinfo itself is like this:
+  
+    script:  scriptinfo - find script's type, version, short description
+    type:    bash
+    version: 1.00
+    
+    For a script with /gendoc/ documentation, scriptinfo prints the script's
+    short description, type, version, intro, and changes.
+    
+    Initial version
+
+Without the |--nocolor| option the script's name and strings enclosed in
+pipe symbols will be ANSI colored.
+
+With the |--brief| option, exactly 5 lines are output, one for each of
+short description, type, version, intro, and changes.
+This is the output used by the /instscript/ en /gendoc/ scripts.
+
+= Changes
+Initial version
+
+= Author and copyright
+Author	Wybo Dekker
+Email	U{Wybo@dekkerdocumenten.nl}{wybo@dekkerdocumenten.nl}
+License	Released under the U{http://www.gnu.org/copyleft/gpl.html}{GNU General Public License}
+DOC
+
+    die() { echo -e "$myname: $Err$@$Nor" 1>&2; exit 1; }
+   help() { sed -n '/^= Synopsis/,/^= /p' $0|sed '1s/.*/Usage:/;/^= /d'; exit; }
+helpall() { sed -n '/^<<.DOC.$/,/^DOC$/p' $0|sed -n '1d;$d;p'|less; exit; }
+version() { echo $version; exit; }
+install() { which instscript>&/dev/null && instscript $myname; exit; }
+
+Err='[31;1m' # light red	]
+Fil='[33m'   # brown		]
+Com='[34;1m' # light blue	]
+Nor='[0m'    # reset color	]
+
+if ! options=$(getopt \
+   -n $myname \
+   -o hHVIbn \
+   -l help,Help,version,brief,nocolor \
+   -- "$@"
+); then exit 1; fi
+eval set -- "$options"
+brief=false
+color=true
+while [ $# -gt 0 ]; do
+   case $1 in
+   (-h|--help)    help;;
+   (-H|--Help)    helpall;;
+   (-V|--version) version;;
+   (-I)           install;;
+   (-b|--brief)	  brief=true; shift;;
+   (-n|--nocolor) color=false; shift;;
+   (--)           shift;  break;;
+   (*)			  break;;
+   esac
+done
+script="$1"
+if [[ ! -f $script ]]; then
+   if [[ $script =~ / ]]; then
+      [[ -e $script ]] || die $script: does not exist
+      [[ -f $script ]] || die $script: not a regular file
+   else
+      script=$(which "$1")
+      [[ -z $script ]] && die $1: not found here, nor in PATH
+   fi
+fi
+scriptversion= type= short= n=0 scriptname=${1##*/} ready=0 intro= changes=
+author= email= license= see=
+while read -r line; do
+   # type
+   [[ $((n++)) = 0 && 
+      $line =~ (bash|ruby|perl|python|sh) ]] &&
+      type=${BASH_REMATCH[1]} &&
+      let ready+=1
+   # version
+   [[ -z $scriptversion &&
+      $line =~ ^[[:space:]]*\$?[Vv]ersion[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]] &&
+      scriptversion=${BASH_REMATCH[1]} &&
+      let ready+=1 
+   # short description
+   [[ -z $short &&
+      $line =~ ^=\ $scriptname\ -\ (.*) ]] &&
+      short=${BASH_REMATCH[1]} &&
+      let ready+=1
+   # intro: first paragraph after Description header
+   [[ $line =~ ^=\ Description ]] && {
+      while read -r line; do 
+         test -n "$line" && intro+="$line\n" || break
+      done
+      let ready+=1
+   }
+   # changes: first paragraph after Changes header   
+   [[ $line =~ ^=\ Changes ]] && {
+      while read -r line; do 
+         test -n "$line" && changes+="$line\n" || break
+      done
+      let ready+=1
+   }    
+   # author, email, license:
+   [[ $line =~ ^=\ Author ]] && {
+      read -r line; author=${line#Author	}
+      read -r line; IFS=$'\}\{' read -r i i i email <<<$line
+      read -r line; IFS=$'\}\{' read -r i see i license <<<$line
+      let ready+=1
+   }
+      
+   test $ready -eq 6 && break
+done < "$script"
+if $brief; then
+   echo $short
+   echo $type
+   echo ${scriptversion:-?????}
+   echo $intro
+   echo $changes
+else 
+   $color && sedscript="s/\<$scriptname\>/$Fil&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
+ ( echo --------------------------------------------------------------------------------
+   echo -e " script: $scriptname - $short"
+   echo    "   type: $type"
+   echo    " author: $author"
+   echo    "  email: $email"
+   echo    "version: ${scriptversion:-?????}"
+   echo    "license: Released under the $license"
+   echo    "    see: $see"
+   echo --------------------------------------------------------------------------------
+   test -n "$intro"   && echo -e "$intro"
+   test -n "$changes" && echo -e "$changes" ) |
+   sed -e "$sedscript"
+fi
