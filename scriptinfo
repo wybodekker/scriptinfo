@@ -4,7 +4,7 @@ version=1.00
 myname=$(basename $0)
 
 <<'DOC'
-= scriptinfo - find script's type, version, short description
+= scriptinfo - for script with gendoc documentation, print concise info
 
 = Synopsis
 scriptinfo [options] scriptname	
