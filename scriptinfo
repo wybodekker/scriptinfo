@@ -142,7 +142,7 @@ while read -r line; do
    [[ $line =~ ^=\ Author ]] && {
       read -r line; author=${line#Author	}
       read -r line; IFS=$'\}\{' read -r i i i email <<<$line
-      read -r line; IFS=$'\}\{' read -r i see i license <<<$line
+      read -r i line; license=$(sed 's/U{[^}]*}{\(.*\)}/\1/' <<<$line)
       let ready+=1
    }
       
@@ -156,14 +156,12 @@ if $brief; then
    echo $changes
 else 
    $color && sedscript="s/\<$scriptname\>/$Fil&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
- ( echo --------------------------------------------------------------------------------
-   echo -e " script: $scriptname - $short"
+ ( echo -e " script: $scriptname - $short"
    echo    "   type: $type"
    echo    " author: $author"
    echo    "  email: $email"
    echo    "version: ${scriptversion:-?????}"
-   echo    "license: Released under the $license"
-   echo    "    see: $see"
+   echo    "license: $license"
    echo --------------------------------------------------------------------------------
    test -n "$intro"   && echo -e "$intro"
    test -n "$changes" && echo -e "$changes" ) |
