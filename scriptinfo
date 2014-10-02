@@ -73,7 +73,7 @@ DOC
    help() { sed -n '/^= Synopsis/,/^= /p' $0|sed '1s/.*/Usage:/;/^= /d'; exit; }
 helpall() { sed -n '/^<<.DOC.$/,/^DOC$/p' $0|sed -n '1d;$d;p'|less; exit; }
 version() { echo $version; exit; }
-install() { which instscript>&/dev/null && instscript $myname; exit; }
+install() { which instscript>&/dev/null && instscript --markdown $myname; exit; }
 
 Err='[31;1m' # light red	]
 Fil='[33m'   # brown		]
