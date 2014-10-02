@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=1.00
+version=1.01
 myname=$(basename $0)
 
 <<'DOC'
@@ -36,7 +36,7 @@ If the script has no path information and is not found, it is looked up in PATH.
 - intro is the first paragraph after the line starting with |= Description|
 - changes is the first paragraph after the line starting with |= Changes|
 
-The output of scriptinfo comes in two formats. The default is the long format,
+The output of scriptinfo comes in three formats. The default is the long format,
 which for scriptinfo itself is like this:
   
     script:  scriptinfo - find script's type, version, short description
@@ -53,10 +53,15 @@ pipe symbols will be ANSI colored.
 
 With the |--brief| option, exactly 5 lines are output, one for each of
 short description, type, version, intro, and changes.
-This is the output used by the /instscript/ en /gendoc/ scripts.
+This is the output used by the /instscript/ and /gendoc/ scripts.
+
+With the |--markdown| option, a markdown version is produced, which is
+useful as a README file for bitbucket uploads. This option disables the 
+|--brief| option and sets the |--nocolor| option.
 
 = Changes
-Initial version
+|--markdown| option added.
+Report no changes with the |--brief| option.
 
 = Author and copyright
 Author	Wybo Dekker
@@ -77,25 +82,28 @@ Nor='[0m'    # reset color	]
 
 if ! options=$(getopt \
    -n $myname \
-   -o hHVIbn \
-   -l help,Help,version,brief,nocolor \
+   -o hHVIbnm \
+   -l help,Help,version,brief,nocolor,markdown \
    -- "$@"
 ); then exit 1; fi
 eval set -- "$options"
 brief=false
 color=true
+markdown=false
 while [ $# -gt 0 ]; do
-   case $1 in
-   (-h|--help)    help;;
-   (-H|--Help)    helpall;;
-   (-V|--version) version;;
-   (-I)           install;;
-   (-b|--brief)	  brief=true; shift;;
-   (-n|--nocolor) color=false; shift;;
-   (--)           shift;  break;;
-   (*)			  break;;
+   case $1 in 
+   (-h|--help)     help;;
+   (-H|--Help)     helpall;;
+   (-V|--version)  version;;
+   (-I)            install;;
+   (-b|--brief)	   brief=true; shift;;
+   (-n|--nocolor)  color=false; shift;;
+   (-m|--markdown) markdown=true; shift;;
+   (--)            shift;  break;;
+   (*)		 	   break;;
    esac
 done
+
 script="$1"
 if [[ ! -f $script ]]; then
    if [[ $script =~ / ]]; then
@@ -148,22 +156,38 @@ while read -r line; do
       
    test $ready -eq 6 && break
 done < "$script"
+
+if [ $markdown = true ]; then 
+   color=false
+   brief=false
+   changes=$(sed 's/|//g' <<<$changes)
+   intro=$(sed 's/|//g' <<<$intro)
+   head="|\n-------:|:--------------------------------------"
+   s=':|' # column separator
+   l=     # paragraph separator
+else
+   s=':'
+   head=
+   l="--------------------------------------------------------------------------------"
+fi
+
 if $brief; then
    echo $short
    echo $type
    echo ${scriptversion:-?????}
-   echo $intro
-   echo $changes
+   echo -e $intro
 else 
    $color && sedscript="s/\<$scriptname\>/$Fil&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
- ( echo -e " script: $scriptname - $short"
-   echo    "   type: $type"
-   echo    " author: $author"
-   echo    "  email: $email"
-   echo    "version: ${scriptversion:-?????}"
-   echo    "license: $license"
-   echo --------------------------------------------------------------------------------
+      
+ ( test -z $head || echo -e $head
+   echo -e " script$s $scriptname - $short"
+   echo    "   type$s $type"
+   echo    " author$s $author"
+   echo    "  email$s $email"
+   echo    "version$s ${scriptversion:-?????}"
+   echo    "license$s $license"
+   echo $l
    test -n "$intro"   && echo -e "$intro"
-   test -n "$changes" && echo -e "$changes" ) |
+   test -n "$changes" && echo -e "Recent changes:\n$changes" ) |
    sed -e "$sedscript"
 fi
