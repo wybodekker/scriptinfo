@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=1.02
+version=1.03
 myname=$(basename $0)
 
 <<'DOC'
@@ -61,8 +61,12 @@ With the |--markdown| option, a markdown version is produced, which is
 useful as a README file for bitbucket uploads. This option disables the 
 |--brief| option and sets the |--nocolor| option.
 
-= Changes
-Comments updated
+= C binaries
+My C binaries are compiled from bash scripts that copy their /gendoc/ documentation into
+the C-source as text for the -h option; by inserting a newline before the text it is
+ensured that all lines can be grepped from the binary. The version information is not in
+these lines: it is obtained by running the binary with the |-V| option, which must have
+been programmed, of course.
 
 = Author and copyright
 Author	Wybo Dekker
@@ -157,6 +161,8 @@ while read -r line; do
       
    test $ready -eq 6 && break
 done < "$script"
+: ${scriptversion:=$($script -V)}
+: ${type:=C}
 
 if [ $markdown = true ]; then 
    color=false
@@ -175,7 +181,7 @@ fi
 if $brief; then
    echo $short
    echo $type
-   echo ${scriptversion:-?????}
+   echo $scriptversion
    echo -e $intro
 else 
    $color && sedscript="s/\<$scriptname\>/$Fil&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
@@ -185,7 +191,7 @@ else
    echo    "   type$s $type"
    echo    " author$s $author"
    echo    "  email$s $email"
-   echo    "version$s ${scriptversion:-?????}"
+   echo    "version$s $scriptversion"
    echo    "license$s $license"
    echo $l
    test -n "$intro"   && echo -e "$intro"
