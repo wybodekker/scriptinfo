@@ -77,10 +77,13 @@ DOC
     die() { echo -e "$myname: $Err$@$Nor" 1>&2; exit 1; }
    help() { sed -n '/^= Synopsis/,/^= /p' $0|sed '1s/.*/Usage:/;/^= /d'; exit; }
 helpall() { sed -n '/^<<.DOC.$/,/^DOC$/p' $0|sed -n '1d;$d;p'|less; exit; }
+   Warn() { echo -e "$myname: $War${*}$Nor"; } 1>&2
+   warn() { $verbose && Warn "$@"; }
 version() { echo $version; exit; }
 install() { which instscript>&/dev/null && instscript --pdf --markdown $myname; exit; }
 
 Err='[31;1m' # light red	]
+War='[35;1m' # light magenta	]
 Fil='[33m'   # brown		]
 Com='[34;1m' # light blue	]
 Nor='[0m'    # reset color	]
@@ -119,51 +122,63 @@ if [[ ! -f $script ]]; then
       [[ -z $script ]] && die $1: not found here, nor in PATH
    fi
 fi
-scriptversion= type= short= n=0 scriptname=${1##*/} ready=0 intro= changes=
-author= email= license= see=
+scriptversion= type= short= n=0 scriptname=${1##*/} intro= changes=
+author= email= license= see= indoc=false
 while read -r line; do
    # type
    [[ $((n++)) = 0 && 
-      $line =~ (bash|ruby|perl|python|sh) ]] &&
-      type=${BASH_REMATCH[1]} &&
-      let ready+=1
-   # version
-   [[ -z $scriptversion &&
-      $line =~ ^[[:space:]]*\$?[Vv]ersion[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]] &&
-      scriptversion=${BASH_REMATCH[1]} &&
-      let ready+=1 
-   # short description
-   [[ -z $short &&
-      $line =~ ^=\ $scriptname\ -\ (.*) ]] &&
-      short=${BASH_REMATCH[1]} &&
-      let ready+=1
-   # intro: first paragraph after Description header
-   [[ $line =~ ^=\ Description ]] && {
-      while read -r line; do 
-         test -n "$line" && intro+="$line\n" || break
-      done
-      let ready+=1
-   }
-   # changes: first paragraph after Changes header   
-   [[ $line =~ ^=\ Changes ]] && {
-      while read -r line; do 
-         test -n "$line" && changes+="$line\n" || break
-      done
-      let ready+=1
-   }    
-   # author, email, license:
-   [[ $line =~ ^=\ Author ]] && {
-      read -r line; author=${line#Author	}
-      read -r line; IFS=$'\}\{' read -r i i i email <<<$line
-      read -r i line; license=$(sed 's/U{[^}]*}{\(.*\)}/\1/' <<<$line)
-      let ready+=1
-   }
-      
-   test $ready -eq 6 && break
-done < "$script"
-: ${scriptversion:=$($script -V)}
-: ${type:=C}
+      $line =~ (bash|ruby|perl|python|sh|C) ]] &&
+      type=${BASH_REMATCH[1]}
+   if $indoc; then
+      # end of DOC?
+      [[ $line =~ ^DOC ]] && break
+      # short description
+      [[ -z $short &&
+         $line =~ ^=\ $scriptname\ -\ (.*) ]] &&
+         short=${BASH_REMATCH[1]}
+      # intro: first paragraph after Description header
+      [[ $line =~ ^=\ Description ]] && {
+         while read -r line; do 
+            test -n "$line" && intro+="$line\n" || break
+         done
+      }
+      # changes: first paragraph after Changes header   
+      [[ $line =~ ^=\ Changes ]] && {
+         while read -r line; do 
+            test -n "$line" && changes+="$line\n" || break
+         done
+      }    
+      # author, email, license:
+      [[ $line =~ ^=\ Author ]] && {
+         read -r line; author=${line#Author	}
+         read -r line; IFS=$'\}\{' read -r i i i email <<<$line
+         read -r i line; license=$(sed 's/U{[^}]*}{\(.*\)}/\1/' <<<$line)
+      }
+   else
+      # start of DOC?
+      [[ $line =~ ^\<\<\'DOC\' ]] && indoc=true
+      # version: use first match
+      [[ -z $scriptversion &&
+         $line =~ ^[[:space:]]*\$?[Vv]ersion[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]] &&
+         scriptversion=${BASH_REMATCH[1]}
+   fi
+done < <(
+   if [[ $(file --mime "$script") =~ binary$ ]]; then
+      echo '#!/bin/C'
+      v=$($script -V) || die "$script does not respond to -V option"
+      echo version=$v
+      echo "<<'DOC'"
+      $script -h || die "$script does not respond to -h option"
+      echo DOC
+   else
+      sed -e "s/#[^!].*//" "$script"
+   fi
+)
 
+if [ -z $scriptversion ]; then
+   Warn "No version info in $script; check if the version was correctly formatted\n" \
+        "and placed before the gendoc documentation"
+fi
 if [ $markdown = true ]; then 
    color=false
    brief=false
@@ -178,23 +193,24 @@ else
    l="--------------------------------------------------------------------------------"
 fi
 
+unk='<??>'
 if $brief; then
-   echo $short
-   echo $type
-   echo $scriptversion
-   echo -e $intro
+   echo ${short:-$unk}
+   echo ${type:-$unk}
+   echo ${scriptversion:-$unk}
+   echo -e ${intro:-$unk}
 else 
-   $color && sedscript="s/\<$scriptname\>/$Fil&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
+   $color && sedscript="s/\<$scriptname\>/${Fil}&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
       
  ( test -z $head || echo -e $head
-   echo -e " script$s $scriptname - $short"
-   echo    "   type$s $type"
-   echo    " author$s $author"
-   echo    "  email$s $email"
-   echo    "version$s $scriptversion"
-   echo    "license$s $license"
+   echo -e " script$s $scriptname - ${short:-$unk}"
+   echo    "   type$s ${type:-$unk}"
+   echo    " author$s ${author:-$unk}"
+   echo    "  email$s ${email:-$unk}"
+   echo    "version$s ${scriptversion:-$unk}"
+   echo    "license$s ${license:-$unk}"
    echo $l
-   test -n "$intro"   && echo -e "$intro"
+   echo -e "${intro:-$unk}"
    test -n "$changes" && echo -e "Recent changes:\n$changes" ) |
    sed -e "$sedscript"
 fi
