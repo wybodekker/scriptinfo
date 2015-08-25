@@ -10,12 +10,13 @@ myname=scriptinfo
 scriptinfo [options] scriptname	
 
 Options:
--h,--help	print this help and exit
--H,--Help	print full documentation via less and exit
--V,--version	print version and exit
--b,--brief	print brief output for usage in scripts
--n,--nocolor	print without ANSI coloring sequences
--m,--markdown	use markdown for bitbucket-copatible output
+-h|--help	print short help and exit
+-H|--Help	print full documentation and exit
+-V|--version	print version and exit
+-b|--brief	print brief output for usage in scripts
+-n|--nocolor	print without ANSI coloring sequences
+-m|--markdown	use markdown for bitbucket-compatible output
+-o|--options	list the options and exits
 
 = Description
 For a script with /gendoc/ documentation, scriptinfo prints the script's 
@@ -61,6 +62,21 @@ With the |--markdown| option, a markdown version is produced, which is
 useful as a README file for bitbucket uploads. This option disables the 
 |--brief| option and sets the |--nocolor| option.
 
+The |--options| option is useful when writing the documentation for a shell script. 
+When the option handler contains lines like this:
+
+   (-o|--option)	# this option does nothing
+
+then the command:
+   scriptinfo -o script
+will generate lines like this:
+
+-o,--option	this option does nothing
+
+which can be inserted in the documentation. When you are editing the script with vim,
+you can insert such lines by giving the ex-command:
+  :r!scriptinfo -o %
+
 = C binaries
 My C binaries are compiled from bash scripts that copy their /gendoc/ documentation into
 the C-source as text for the -h option; by inserting a newline before the text it is
@@ -90,25 +106,34 @@ Nor='[0m'    # reset color	]
 
 if ! options=$(getopt \
    -n $myname \
-   -o hHVIbnm \
-   -l help,Help,version,brief,nocolor,markdown \
+   -o hHVIbnom \
+   -l help,Help,version,brief,nocolor,markdown,options \
    -- "$@"
 ); then exit 1; fi
 eval set -- "$options"
 brief=false
 color=true
 markdown=false
+listoptions=false
 while [ $# -gt 0 ]; do
    case $1 in 
-   (-h|--help)     help;;
-   (-H|--Help)     helpall;;
-   (-V|--version)  version;;
-   (-I)            install;;
-   (-b|--brief)	   brief=true; shift;;
-   (-n|--nocolor)  color=false; shift;;
-   (-m|--markdown) markdown=true; shift;;
-   (--)            shift;  break;;
-   (*)		 	   break;;
+   (-h|--help)		# print short help and exit
+	 help;;
+   (-H|--Help)		# print full documentation and exit
+	 helpall;;
+   (-V|--version)	# print version and exit
+	 version;;
+   (-b|--brief)		# print brief output for usage in scripts
+	 brief=true; shift;;
+   (-n|--nocolor)	# print without ANSI coloring sequences
+	 color=false; shift;;
+   (-m|--markdown)	# use markdown for bitbucket-compatible output
+	 markdown=true; shift;;
+   (-o|--options)	# list the options and exits
+	 listoptions=true; shift;;
+   (-I)  install;;
+   (--)  shift;  break;;
+   (*)	 break;;
    esac
 done
 
@@ -126,6 +151,12 @@ fi
 if [[ -L $script ]]; then
    script=$(readlink -f $script)
 fi
+
+if $listoptions; then
+   sed -n 's/|--/,--/;s/^   (\(.*\)).*# \(.*\)/\1\t\2/p' $script |unexpand
+   exit
+fi
+
 scriptversion= type= short= n=0 scriptname=${script##*/} intro= changes=
 author= email= license= see= indoc=false
 while read -r line; do
