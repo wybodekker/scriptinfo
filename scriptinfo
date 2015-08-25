@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=1.04
+version=1.05
 myname=scriptinfo
 
 <<'DOC'
