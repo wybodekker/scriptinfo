@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=1.05
+version=1.06
 myname=scriptinfo
 
 <<'DOC'
@@ -90,9 +90,9 @@ Email	U{Wybo@dekkerdocumenten.nl}{wybo@dekkerdocumenten.nl}
 License	Released under the U{www.gnu.org/copyleft/gpl.html}{GNU General Public License}
 DOC
 
-    die() { echo -e "$myname: $Err$@$Nor" 1>&2; exit 1; }
-   help() { sed -n '/^= Synopsis/,/^= /p' $0|sed '1s/.*/Usage:/;/^= /d'; exit; }
-helpall() { sed -n '/^<<.DOC.$/,/^DOC$/p' $0|sed -n '1d;$d;p'|less; exit; }
+    die() { echo -e "$myname: $Err${*}$Nor" 1>&2; exit 1; }
+   help() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1s/.*/Usage:/;/^= /d'; exit; }
+helpall() { sed -n '/^<<.DOC.$/,/^DOC$/p' "$0"|sed -n '1d;$d;p'|less; exit; }
    Warn() { echo -e "$myname: $War${*}$Nor"; } 1>&2
    warn() { $verbose && Warn "$@"; }
 version() { echo $version; exit; }
@@ -117,23 +117,38 @@ markdown=false
 listoptions=false
 while [ $# -gt 0 ]; do
    case $1 in 
-   (-h|--help)		# print short help and exit
-	 help;;
-   (-H|--Help)		# print full documentation and exit
-	 helpall;;
-   (-V|--version)	# print version and exit
-	 version;;
-   (-b|--brief)		# print brief output for usage in scripts
-	 brief=true; shift;;
-   (-n|--nocolor)	# print without ANSI coloring sequences
-	 color=false; shift;;
-   (-m|--markdown)	# use markdown for bitbucket-compatible output
-	 markdown=true; shift;;
-   (-o|--options)	# list the options and exits
-	 listoptions=true; shift;;
-   (-I)  install;;
-   (--)  shift;  break;;
-   (*)	 break;;
+   (-h|--help)     # print short help and exit
+                   help
+                   ;;
+   (-H|--Help)     # print full documentation and exit
+                   helpall
+                   ;;
+   (-V|--version)  # print version and exit
+                   version
+                   ;;
+   (-b|--brief)    # print brief output for usage in scripts
+                   brief=true
+                   shift
+                   ;;
+   (-n|--nocolor)  # print without ANSI coloring sequences
+                   color=false
+                   shift
+                   ;;
+   (-m|--markdown) # use markdown for bitbucket-compatible output
+                   markdown=true
+                   shift
+                   ;;
+   (-o|--options)  # list the options and exits
+                   listoptions=true
+                   shift
+                   ;;
+   (-I)            install
+                   ;;
+   (--)            shift
+                   break
+                   ;;
+   (*)             break
+                   ;;
    esac
 done
 
@@ -141,24 +156,39 @@ script="$1"
 test -z "$script" && die "I need a script name"
 if [[ ! -f $script ]]; then
    if [[ $script =~ / ]]; then
-      [[ -e $script ]] || die $script: does not exist
-      [[ -f $script ]] || die $script: not a regular file
+      [[ -e $script ]] || die "$script: does not exist"
+      [[ -f $script ]] || die "$script: not a regular file"
    else
       script=$(which "$1")
-      [[ -z $script ]] && die $1: not found here, nor in PATH
+      [[ -z $script ]] && die "$1: not found here, nor in PATH"
    fi
 fi
 if [[ -L $script ]]; then
-   script=$(readlink -f $script)
+   script=$(readlink -f "$script")
 fi
 
 if $listoptions; then
-   sed -n 's/|--/,--/;s/^   (\(.*\)).*# \(.*\)/\1\t\2/p' $script |unexpand
+   while IFS= read -r line; do
+      # skip DOC:
+      if [[ $line =~ ^\<\<\'DOC\' ]]; then
+         while read -r line; do 
+            [[ $line = DOC ]] && break
+         done
+      fi
+      # find getopt entries:
+      if [[ $line =~ ^[[:space:]]+\((.*--[A-Za-z]+)\)[[:space:]]+#\ (.*) ]]; then 
+         echo -e "${BASH_REMATCH[1]}\t${BASH_REMATCH[2]}"
+         while IFS= read -r line; do
+            [[ $line =~ ^[[:space:]]+#\ (.*) ]] || break
+            echo -e "\t\t${BASH_REMATCH[1]}"
+         done
+      fi
+   done <"$script"
    exit
 fi
 
-scriptversion= type= short= n=0 scriptname=${script##*/} intro= changes=
-author= email= license= see= indoc=false
+scriptversion='' type='' short='' n=0 scriptname=${script##*/} intro='' changes=
+author='' email='' license='' indoc=false
 while read -r line; do
    # type
    [[ $((n++)) = 0 && 
@@ -168,40 +198,50 @@ while read -r line; do
       # end of DOC?
       [[ $line =~ ^DOC ]] && break
       # short description
-      [[ -z $short &&
-         $line =~ ^=\ $scriptname\ -\ (.*) ]] &&
+      if [[ -z $short && $line =~ ^=\ $scriptname\ -\ (.*) ]]; then
          short=${BASH_REMATCH[1]}
+      fi
       # intro: first paragraph after Description header
       [[ $line =~ ^=\ Description ]] && {
          while read -r line; do 
-            test -n "$line" && intro+="$line\n" || break
+            if [ -n "$line" ]; then
+               intro+="$line\n"
+            else
+               break
+            fi
          done
       }
       # changes: first paragraph after Changes header   
       [[ $line =~ ^=\ Changes ]] && {
          while read -r line; do 
-            test -n "$line" && changes+="$line\n" || break
+            if [ -n "$line" ]; then
+               changes+="$line\n"
+            else
+               break
+            fi
          done
       }    
       # author, email, license:
       [[ $line =~ ^=\ Author ]] && {
+         export local i
          read -r line; author=${line#Author	}
-         read -r line; IFS=$'\}\{' read -r i i i email <<<$line
-         read -r i line; license=$(sed 's/U{[^}]*}{\(.*\)}/\1/' <<<$line)
+         read -r line; IFS=$'\}\{' read -r i i i email <<<"$line"
+         read -r i line; license=$(sed 's/U{[^}]*}{\(.*\)}/\1/' <<<"$line")
       }
    else
       # start of DOC?
       [[ $line =~ ^\<\<\'DOC\' ]] && indoc=true
       # version: use first match
-      [[ -z $scriptversion &&
-         $line =~ ^[[:space:]]*\$?[Vv]ersion[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]] &&
+      if [[ -z $scriptversion && 
+         $line =~ ^[[:space:]]*\$?[Vv]ersion[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]]; then
          scriptversion=${BASH_REMATCH[1]}
+      fi
    fi
 done < <(
    if [[ $(file --mime "$script") =~ binary$ ]]; then
       echo '#!/bin/C'
       v=$($script -V) || die "$script does not respond to -V option"
-      echo version=$v
+      echo version="$v"
       echo "<<'DOC'"
       $script -h || die "$script does not respond to -h option"
       echo DOC
@@ -210,18 +250,18 @@ done < <(
    fi
 )
 
-if [ -z $scriptversion ]; then
+if [[ -z $scriptversion ]]; then
    Warn "No version info in $script; check if the version was correctly formatted\n" \
         "and placed before the gendoc documentation"
 fi
 if [ $markdown = true ]; then 
    color=false
    brief=false
-   changes=$(sed 's/|//g' <<<$changes)
-   intro=$(sed 's/|//g' <<<$intro)
+   changes=$(sed 's/|//g' <<<"$changes")
+   intro=$(sed 's/|//g' <<<"$intro")
    head="|\n-------:|:--------------------------------------"
    s=':|' # column separator
-   l=     # paragraph separator
+   l=''     # paragraph separator
 else
    s=':'
    head=
@@ -230,10 +270,10 @@ fi
 
 unk='<??>'
 if $brief; then
-   echo ${short:-$unk}
-   echo ${type:-$unk}
-   echo ${scriptversion:-$unk}
-   echo -e ${intro:-$unk}
+   echo "${short:-$unk}"
+   echo "${type:-$unk}"
+   echo "${scriptversion:-$unk}"
+   echo -e "${intro:-$unk}"
 else 
    $color && sedscript="s/\<$scriptname\>/${Fil}&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
       
