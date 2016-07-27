@@ -1,7 +1,7 @@
 #!/bin/bash
 
-version=1.06
-myname=scriptinfo
+Version=1.06
+Myname="${0##*/}"
 
 <<'DOC'
 = scriptinfo - for script with gendoc documentation, print concise info
@@ -9,7 +9,7 @@ myname=scriptinfo
 = Synopsis
 scriptinfo [options] scriptname	
 
-Options:
+= Options
 -h|--help	print short help and exit
 -H|--Help	print full documentation and exit
 -V|--version	print version and exit
@@ -84,28 +84,17 @@ ensured that all lines can be grepped from the binary. The version information i
 these lines: it is obtained by running the binary with the |-V| option, which must have
 been programmed, of course.
 
-= Author and copyright
-Author	Wybo Dekker
-Email	U{Wybo@dekkerdocumenten.nl}{wybo@dekkerdocumenten.nl}
-License	Released under the U{www.gnu.org/copyleft/gpl.html}{GNU General Public License}
+= Author
+[Wybo Dekker](wybo@dekkerdocumenten.nl)
+
+= Copyright
+Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
 DOC
 
-    die() { echo -e "$myname: $Err${*}$Nor" 1>&2; exit 1; }
-   help() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1s/.*/Usage:/;/^= /d'; exit; }
-helpall() { sed -n '/^<<.DOC.$/,/^DOC$/p' "$0"|sed -n '1d;$d;p'|less; exit; }
-   Warn() { echo -e "$myname: $War${*}$Nor"; } 1>&2
-   warn() { $verbose && Warn "$@"; }
-version() { echo $version; exit; }
-install() { which instscript>&/dev/null && instscript --pdf --markdown $myname; exit; }
 
-Err='[31;1m' # light red	]
-War='[35;1m' # light magenta	]
-Fil='[33m'   # brown		]
-Com='[34;1m' # light blue	]
-Nor='[0m'    # reset color	]
 
 if ! options=$(getopt \
-   -n $myname \
+   -n $Myname \
    -o hHVIbnom \
    -l help,Help,version,brief,nocolor,markdown,options \
    -- "$@"
@@ -118,13 +107,14 @@ listoptions=false
 while [ $# -gt 0 ]; do
    case $1 in 
    (-h|--help)     # print short help and exit
-                   help
+                   helpsrt
                    ;;
    (-H|--Help)     # print full documentation and exit
                    helpall
                    ;;
    (-V|--version)  # print version and exit
-                   version
+                   echo $Version
+		   exit
                    ;;
    (-b|--brief)    # print brief output for usage in scripts
                    brief=true
@@ -142,7 +132,7 @@ while [ $# -gt 0 ]; do
                    listoptions=true
                    shift
                    ;;
-   (-I)            install
+   (-I)            instscr
                    ;;
    (--)            shift
                    break
@@ -222,20 +212,30 @@ while read -r line; do
          done
       }    
       # author, email, license:
-      [[ $line =~ ^=\ Author ]] && {
-         export local i
-         read -r line; author=${line#Author	}
-         read -r line; IFS=$'\}\{' read -r i i i email <<<"$line"
-         read -r i line; license=$(sed 's/U{[^}]*}{\(.*\)}/\1/' <<<"$line")
-      }
+      if [[ $line =~ ^=\ Author ]]; then
+         read -r line
+         if [[ $line =~ \[(.*)\]\((.*)\) ]]; then
+            author=${BASH_REMATCH[1]}
+            email=${BASH_REMATCH[2]}
+         fi
+      fi
+      # license:
+      if [[ $line =~ ^=\ Copyright ]]; then
+         read -r line
+         if [[ $line =~ \[(.*)\] ]]; then
+            license=${BASH_REMATCH[1]}
+         fi
+      fi
    else
       # start of DOC?
       [[ $line =~ ^\<\<\'DOC\' ]] && indoc=true
       # version: use first match
+      shopt -s nocasematch
       if [[ -z $scriptversion && 
-         $line =~ ^[[:space:]]*\$?[Vv]ersion[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]]; then
+         $line =~ ^[[:space:]]*\$?version[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]]; then
          scriptversion=${BASH_REMATCH[1]}
       fi
+      shopt -u nocasematch
    fi
 done < <(
    if [[ $(file --mime "$script") =~ binary$ ]]; then
@@ -243,7 +243,7 @@ done < <(
       v=$($script -V) || die "$script does not respond to -V option"
       echo version="$v"
       echo "<<'DOC'"
-      $script -h || die "$script does not respond to -h option"
+      $script -H || die "$script does not respond to -H option"
       echo DOC
    else
       sed -e "s/#[^!].*//" "$script"
@@ -251,7 +251,7 @@ done < <(
 )
 
 if [[ -z $scriptversion ]]; then
-   Warn "No version info in $script; check if the version was correctly formatted\n" \
+   Warn "No version info in $script; check if the version was correctly formatted" \
         "and placed before the gendoc documentation"
 fi
 if [ $markdown = true ]; then 
