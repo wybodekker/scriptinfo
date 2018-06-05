@@ -1,12 +1,10 @@
-|
--------:|:--------------------------------------
- script:| scriptinfo - for script with gendoc documentation, print concise info
-   type:| bash
- author:| Wybo Dekker
-  email:| wybo@dekkerdocumenten.nl
-version:| 1.06
-license:| GNU General Public License
-
+ script: scriptinfo - for script with gendoc documentation, print concise info
+   type: bash
+ author: Wybo Dekker
+  email: wybo@dekkerdocumenten.nl
+version: 1.07
+license: GNU General Public License
+--------------------------------------------------------------------------------
 For a script with /gendoc/ documentation, scriptinfo prints the script's
 short description, type, version, intro, and changes.
 

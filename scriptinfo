@@ -1,9 +1,9 @@
 #!/bin/bash
 
-Version=1.06
+Version=1.07
 Myname="${0##*/}"
 
-<<'DOC'
+:<<'DOC'
 = scriptinfo - for script with gendoc documentation, print concise info
 
 = Synopsis
@@ -165,7 +165,7 @@ fi
 if $listoptions; then
    while IFS= read -r line; do
       # skip DOC:
-      if [[ $line =~ ^\<\<\'DOC\' ]]; then
+      if [[ $line =~ ^:\<\<\'DOC\' ]]; then
          while read -r line; do 
             [[ $line = DOC ]] && break
          done
@@ -233,7 +233,7 @@ while read -r line; do
       fi
    else
       # start of DOC?
-      [[ $line =~ ^\<\<\'DOC\' ]] && indoc=true
+      [[ $line =~ ^:\<\<\'DOC\' ]] && indoc=true
       # version: use first match
       shopt -s nocasematch
       if [[ -z $scriptversion && 
@@ -247,7 +247,7 @@ done < <(
       echo '#!/bin/C'
       v=$($script -V) || die "$script does not respond to -V option"
       echo version="$v"
-      echo "<<'DOC'"
+      echo ":<<'DOC'"
       $script -H || die "$script does not respond to -H option"
       echo DOC
    else
