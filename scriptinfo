@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Version=1.07
+Version=1.08
 Myname="${0##*/}"
 
 :<<'DOC'
@@ -9,7 +9,7 @@ Myname="${0##*/}"
 = Synopsis
 scriptinfo [options] scriptname	
 
-= Options
+== Options
 -h|--help	print short help and exit
 -H|--Help	print full documentation and exit
 -V|--version	print version and exit
@@ -54,8 +54,8 @@ which for scriptinfo itself is like this:
 Without the |--nocolor| option the script's name and strings enclosed in
 pipe symbols will be ANSI colored.
 
-With the |--brief| option, exactly 5 lines are output, one for each of
-short description, type, version, intro, and changes.
+With the |--brief| option, exactly 3 lines are output, one for each of
+short description, type, version.
 This is the output used by the /instscript/ and /gendoc/ scripts.
 
 With the |--markdown| option, a markdown version is produced, which is
@@ -91,22 +91,36 @@ been programmed, of course.
 Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
 DOC
 
-test "$(type -t helpsrt)" = function || source wdbashfunctions 2>/dev/null || {
-   echo -e "${0##*/} needs wdbashfunctions\n" \
-        "get those with: wget http://www.dekkerdocumenten.nl/unix/wdbashfunctions,\n" \
-        "and put the script in your PATH or source it in your ~/.bashrc"
-   exit 1
-}
+REd='[38;5;9m'
+Mag='[38;5;5m'
+Nor='[0m'
+YeL='[1;38;5;3m'
+BlU='[1;38;5;4m'
+    die() { local i
+	    for i; do
+		echo -e "$Myname: $REd$i"
+	    done 1>&2
+	    exit 1
+	  }
+   Warn() { local i; for i; do echo -e "$Myname: $Mag$i$Nor"; done 1>&2; }
+helpsrt() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1d;$d'; exit; }
+instscr() { instscript --zip --pdf "$Myname"; exit; }
+
+# shellcheck disable=SC2154
+helpall() { sed -n "/^:\?<<'DOC'$/,/^DOC/p" "$0"|sed -n '1d;$d;p'|
+            less -Ps"$Myname-${Version/./·} documentation - type h for help, q to quit."
+		exit
+	  }
+nocolor() { REd='' Mag='' Nor='' YeL='' BlU=''; }
 
 if ! options=$(getopt \
-   -n $Myname \
+   -n "$Myname" \
    -o hHVIbnom \
    -l help,Help,version,brief,nocolor,markdown,options \
    -- "$@"
 ); then exit 1; fi
 eval set -- "$options"
 brief=false
-color=true
 markdown=false
 listoptions=false
 while [ $# -gt 0 ]; do
@@ -126,7 +140,7 @@ while [ $# -gt 0 ]; do
                    shift
                    ;;
    (-n|--nocolor)  # print without ANSI coloring sequences
-                   color=false
+                   nocolor
                    shift
                    ;;
    (-m|--markdown) # use markdown for bitbucket-compatible output
@@ -154,7 +168,7 @@ if [[ ! -f $script ]]; then
       [[ -e $script ]] || die "$script: does not exist"
       [[ -f $script ]] || die "$script: not a regular file"
    else
-      script=$(which "$1")
+      script=$(command -v "$1")
       [[ -z $script ]] && die "$1: not found here, nor in PATH"
    fi
 fi
@@ -260,15 +274,15 @@ if [[ -z $scriptversion ]]; then
         "and placed before the gendoc documentation"
 fi
 if [ $markdown = true ]; then 
-   color=false
+   nocolor
    brief=false
-   changes=$(sed 's/|//g' <<<"$changes")
-   intro=$(sed 's/|//g' <<<"$intro")
+   changes="${changes//|/}"
+   intro="${intro//|/}"
    head="|\n-------:|:--------------------------------------"
    s=':|' # column separator
    l=''     # paragraph separator
 else
-   s=':'
+   s="$Nor:"
    head=
    l="--------------------------------------------------------------------------------"
 fi
@@ -278,19 +292,16 @@ if $brief; then
    echo "${short:-$unk}"
    echo "${type:-$unk}"
    echo "${scriptversion:-$unk}"
-   echo -e "${intro:-$unk}"
-else 
-   $color && sedscript="s/\<$scriptname\>/${Fil}&$Nor/g;s/|\([^][^|]*\)|/$Com\1$Nor/g"
-      
- ( test -z $head || echo -e $head
-   echo -e " script$s $scriptname - ${short:-$unk}"
-   echo    "   type$s ${type:-$unk}"
-   echo    " author$s ${author:-$unk}"
-   echo    "  email$s ${email:-$unk}"
-   echo    "version$s ${scriptversion:-$unk}"
-   echo    "license$s ${license:-$unk}"
+else
+   sedscript="s/\<$scriptname\>/${YeL}&$Nor/g;s/|\([^][^|]*\)|/$BlU\1$Nor/g"
+   test -z $head || echo -e $head
+   echo -e "${BlU} script$s $YeL$scriptname$Nor - ${short:-$unk}"
+   echo -e "${BlU}   type$s ${type:-$unk}"
+   echo -e "${BlU} author$s ${author:-$unk}"
+   echo -e "${BlU}  email$s ${email:-$unk}"
+   echo -e "${BlU}version$s ${scriptversion:-$unk}"
+   echo -e "${BlU}license$s ${license:-$unk}"
    echo $l
-   echo -e "${intro:-$unk}"
-   test -n "$changes" && echo -e "Recent changes:\n$changes" ) |
-   sed -e "$sedscript"
+   echo -e "${intro:-$unk}" | sed -e "$sedscript"
+   test -n "$changes" && echo -e "${BlU}Recent changes$Nor:\n$changes"
 fi
