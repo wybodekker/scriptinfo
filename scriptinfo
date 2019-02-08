@@ -247,7 +247,7 @@ while read -r line; do
       fi
    else
       # start of DOC?
-      [[ $line =~ ^:\<\<\'DOC\' ]] && indoc=true
+      [[ $line =~ ^:?\<\<\'DOC\' ]] && indoc=true
       # version: use first match
       shopt -s nocasematch
       if [[ -z $scriptversion && 
