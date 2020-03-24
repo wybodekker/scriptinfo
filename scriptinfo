@@ -1,10 +1,10 @@
 #!/bin/bash
 
-Version=1.08
+Version=1.09
 Myname="${0##*/}"
 
 :<<'DOC'
-= scriptinfo - for script with gendoc documentation, print concise info
+= scriptinfo - for a gendoc-documented script, print concise info
 
 = Synopsis
 scriptinfo [options] scriptname	
@@ -19,51 +19,77 @@ scriptinfo [options] scriptname
 -o|--options	list the options and exits
 
 = Description
-For a script with /gendoc/ documentation, scriptinfo prints the script's 
-short description, type, version, intro, and changes.
+For a script with |gendoc| documentation, scriptinfo prints the script's
+short description, type, author, authors email, version, license and intro.
 
-If the script has no path information and is not found, it is looked up in PATH.
-- type is found in the shebang line.
+If the script has no path information and is not found, it is looked
+up in PATH.
+
 - short description is found in the line starting with: |= <scriptname> - |
+- type is found in the shebang line.
+- author and authors email are extracted from the line after the line
+  starting with |= Author|.
 - version must be on a single line and may be capitalized;
   the first occurrence will be used.  Recognized formats are:
+
     version = 1.23
     $version = 1.23
     my $version = 1.23
     version => 1.23a
     version = "1.23"
     version = '1.23d'
+
   Whitespace in these formats may be arbirarily long or absent,
   including at the start of the line, anything may follow at the end,
   but a single lower letter will be part of the version number.
-- intro is the first paragraph after the line starting with |= Description|
-- changes is the first paragraph after the line starting with |= Changes|
+- license is extracted from the line after the line
+  starting with |= Copyright|.
 
-The output of scriptinfo comes in three formats. The default is the long format,
-which for scriptinfo itself is like this:
-  
-    script:  scriptinfo - find script's type, version, short description
-    type:    bash
-    version: 1.00
-    
-    For a script with /gendoc/ documentation, scriptinfo prints the script's
-    short description, type, version, intro, and changes.
-    
-    Initial version
+The output of scriptinfo comes in three formats. The default is the long
+format, which for scriptinfo itself is like this:
 
-Without the |--nocolor| option the script's name and strings enclosed in
-pipe symbols will be ANSI colored.
+   script: scriptinfo - for a gendoc-documented script, print concise info
+     type: bash
+   author: Wybo Dekker
+    email: wybo@dekkerdocumenten.nl
+  version: 1.08
+  license: GNU General Public License
+  --------------------------------------------------------------------------------
+  For a script with |gendoc| documentation, scriptinfo prints the script's
+  short description, type, author, authors email, version, license and intro.
 
-With the |--brief| option, exactly 3 lines are output, one for each of
-short description, type, version.
-This is the output used by the /instscript/ and /gendoc/ scripts.
+Without the |--nocolor| option some keywords will be ANSI colored.
+
+With the |--brief| option, exactly 3 lines are output, one for each
+of short description, type, version. This is the output used by the
+/instscript/ and /gendoc/ scripts. For scriptinfo itself it looks
+like this:
+
+  for a gendoc-documented script, print concise info
+  bash
+  1.08
 
 With the |--markdown| option, a markdown version is produced, which is
-useful as a README file for bitbucket uploads. This option disables the 
-|--brief| option and sets the |--nocolor| option.
+useful as a README file for github uploads. This option disables the
+|--brief| option and sets the |--nocolor| option. The output for scriptinfo
+itself is:
 
-The |--options| option is useful when writing the documentation for a shell script. 
-When the option handler contains lines like this:
+  # scriptinfo
+  |     key | description
+  |     ---:|:---
+  |  script | scriptinfo - for a gendoc-documented script, print concise info
+  |    type | bash
+  |  author | Wybo Dekker
+  |   email | wybo@dekkerdocumenten.nl
+  | version | 1.08
+  | license | GNU General Public License
+
+  For a script with gendoc documentation, scriptinfo prints the script's
+  short description, type, author, authors email, version, license and intro.
+
+
+The |--options| option is useful when writing the documentation for a shell
+script. When the option handler contains lines like this:
 
    (-o|--option)	# this option does nothing
 
@@ -73,16 +99,18 @@ will generate lines like this:
 
 -o,--option	this option does nothing
 
-which can be inserted in the documentation. When you are editing the script with vim,
-you can insert such lines by giving the ex-command:
+which can be inserted in the documentation. When you are editing the
+script with vim, you can insert such lines by giving the ex-command:
+
   :r!scriptinfo -o %
 
 = C binaries
-My C binaries are compiled from bash scripts that copy their /gendoc/ documentation into
-the C-source as text for the -h option; by inserting a newline before the text it is
-ensured that all lines can be grepped from the binary. The version information is not in
-these lines: it is obtained by running the binary with the |-V| option, which must have
-been programmed, of course.
+My C binaries are compiled from bash scripts that copy their /gendoc/
+documentation into the C-source as text for the -h option; by inserting a
+newline before the text it is ensured that all lines can be grepped from
+the binary. The version information is not in these lines: it is obtained
+by running the binary with the |-V| option, which must have been
+programmed, of course.
 
 = Author
 [Wybo Dekker](wybo@dekkerdocumenten.nl)
@@ -92,7 +120,6 @@ Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
 DOC
 
 REd='[38;5;9m'
-Mag='[38;5;5m'
 Nor='[0m'
 YeL='[1;38;5;3m'
 BlU='[1;38;5;4m'
@@ -102,16 +129,14 @@ BlU='[1;38;5;4m'
 	    done 1>&2
 	    exit 1
 	  }
-   Warn() { local i; for i; do echo -e "$Myname: $Mag$i$Nor"; done 1>&2; }
 helpsrt() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1d;$d'; exit; }
-instscr() { instscript --zip --pdf "$Myname"; exit; }
 
 # shellcheck disable=SC2154
 helpall() { sed -n "/^:\?<<'DOC'$/,/^DOC/p" "$0"|sed -n '1d;$d;p'|
             less -Ps"$Myname-${Version/./·} documentation - type h for help, q to quit."
 		exit
 	  }
-nocolor() { REd='' Mag='' Nor='' YeL='' BlU=''; }
+nocolor() { REd='' Nor='' YeL='' BlU=''; }
 
 if ! options=$(getopt \
    -n "$Myname" \
@@ -124,7 +149,7 @@ brief=false
 markdown=false
 listoptions=false
 while [ $# -gt 0 ]; do
-   case $1 in 
+   case $1 in
    (-h|--help)     # print short help and exit
                    helpsrt
                    ;;
@@ -151,8 +176,10 @@ while [ $# -gt 0 ]; do
                    listoptions=true
                    shift
                    ;;
-   (-I)            instscr
-                   ;;
+   (-I)		   instscript "$0" ||
+		      die 'the -I option is for developers only'
+		   exit
+		   ;;
    (--)            shift
                    break
                    ;;
@@ -180,12 +207,12 @@ if $listoptions; then
    while IFS= read -r line; do
       # skip DOC:
       if [[ $line =~ ^:\<\<\'DOC\' ]]; then
-         while read -r line; do 
+         while read -r line; do
             [[ $line = DOC ]] && break
          done
       fi
       # find getopt entries:
-      if [[ $line =~ ^[[:space:]]+\((.*--[A-Za-z]+)\)[[:space:]]+#\ (.*) ]]; then 
+      if [[ $line =~ ^[[:space:]]+\((.*--[A-Za-z]+)\)[[:space:]]+#\ (.*) ]]; then
          echo -e "${BASH_REMATCH[1]}\t${BASH_REMATCH[2]}"
          while IFS= read -r line; do
             [[ $line =~ ^[[:space:]]+#\ (.*) ]] || break
@@ -196,11 +223,11 @@ if $listoptions; then
    exit
 fi
 
-scriptversion='' type='' short='' n=0 scriptname=${script##*/} intro='' changes=
+scriptversion='' type='' short='' n=0 scriptname=${script##*/} intro=''
 author='' email='' license='' indoc=false
 while read -r line; do
    # type
-   [[ $((n++)) = 0 && 
+   [[ $((n++)) = 0 &&
       $line =~ (bash|ruby|perl|python|sh|C) ]] &&
       type=${BASH_REMATCH[1]}
    if $indoc; then
@@ -212,24 +239,15 @@ while read -r line; do
       fi
       # intro: first paragraph after Description header
       [[ $line =~ ^=\ Description ]] && {
-         while read -r line; do 
+         while read -r line; do
             if [ -n "$line" ]; then
                intro+="$line\n"
             else
+               intro=${intro::-2} # remove last \n
                break
             fi
          done
       }
-      # changes: first paragraph after Changes header   
-      [[ $line =~ ^=\ Changes ]] && {
-         while read -r line; do 
-            if [ -n "$line" ]; then
-               changes+="$line\n"
-            else
-               break
-            fi
-         done
-      }    
       # author, email, license:
       if [[ $line =~ ^=\ Author ]]; then
          read -r line
@@ -250,7 +268,7 @@ while read -r line; do
       [[ $line =~ ^:?\<\<\'DOC\' ]] && indoc=true
       # version: use first match
       shopt -s nocasematch
-      if [[ -z $scriptversion && 
+      if [[ -z $scriptversion &&
          $line =~ ^[[:space:]]*\$?version[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]]; then
          scriptversion=${BASH_REMATCH[1]}
       fi
@@ -269,22 +287,19 @@ done < <(
    fi
 )
 
-if [[ -z $scriptversion ]]; then
-   Warn "No version info in $script; check if the version was correctly formatted" \
-        "and placed before the gendoc documentation"
-fi
-if [ $markdown = true ]; then 
+if [ $markdown = true ]; then
    nocolor
    brief=false
-   changes="${changes//|/}"
    intro="${intro//|/}"
-   head="|\n-------:|:--------------------------------------"
-   s=':|' # column separator
-   l=''     # paragraph separator
+   head="# $Myname\n|     key | description\n|     ---:|:---"
+   s=' |' # column separator
+   l=''   # paragraph separator
+   f='| '
 else
    s="$Nor:"
    head=
-   l="--------------------------------------------------------------------------------"
+   l="---"
+   f=''
 fi
 
 unk='<??>'
@@ -294,14 +309,13 @@ if $brief; then
    echo "${scriptversion:-$unk}"
 else
    sedscript="s/\<$scriptname\>/${YeL}&$Nor/g;s/|\([^][^|]*\)|/$BlU\1$Nor/g"
-   test -z $head || echo -e $head
-   echo -e "${BlU} script$s $YeL$scriptname$Nor - ${short:-$unk}"
-   echo -e "${BlU}   type$s ${type:-$unk}"
-   echo -e "${BlU} author$s ${author:-$unk}"
-   echo -e "${BlU}  email$s ${email:-$unk}"
-   echo -e "${BlU}version$s ${scriptversion:-$unk}"
-   echo -e "${BlU}license$s ${license:-$unk}"
+   test -z "$head" || echo -e "$head"
+   echo -e "$f${BlU} script$s $YeL$scriptname$Nor - ${short:-$unk}"
+   echo -e "$f${BlU}   type$s ${type:-$unk}"
+   echo -e "$f${BlU} author$s ${author:-$unk}"
+   echo -e "$f${BlU}  email$s ${email:-$unk}"
+   echo -e "$f${BlU}version$s ${scriptversion:-$unk}"
+   echo -e "$f${BlU}license$s ${license:-$unk}"
    echo $l
    echo -e "${intro:-$unk}" | sed -e "$sedscript"
-   test -n "$changes" && echo -e "${BlU}Recent changes$Nor:\n$changes"
 fi
