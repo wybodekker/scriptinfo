@@ -1,0 +1,321 @@
+#!/bin/bash
+
+Version=1.09
+Myname="${0##*/}"
+
+:<<'DOC'
+= scriptinfo - for a gendoc-documented script, print concise info
+
+= Synopsis
+scriptinfo [options] scriptname	
+
+== Options
+-h|--help	print short help and exit
+-H|--Help	print full documentation and exit
+-V|--version	print version and exit
+-b|--brief	print brief output for usage in scripts
+-n|--nocolor	print without ANSI coloring sequences
+-m|--markdown	use markdown for github-compatible output
+-o|--options	list the options and exits
+
+= Description
+For a script with |gendoc| documentation, scriptinfo prints the script's
+short description, type, author, authors email, version, license and intro.
+
+If the script has no path information and is not found, it is looked
+up in PATH.
+
+- short description is found in the line starting with: |= <scriptname> - |
+- type is found in the shebang line.
+- author and authors email are extracted from the line after the line
+  starting with |= Author|.
+- version must be on a single line and may be capitalized;
+  the first occurrence will be used.  Recognized formats are:
+
+    version = 1.23
+    $version = 1.23
+    my $version = 1.23
+    version => 1.23a
+    version = "1.23"
+    version = '1.23d'
+
+  Whitespace in these formats may be arbirarily long or absent,
+  including at the start of the line, anything may follow at the end,
+  but a single lower letter will be part of the version number.
+- license is extracted from the line after the line
+  starting with |= Copyright|.
+
+The output of scriptinfo comes in three formats. The default is the long
+format, which for scriptinfo itself is like this:
+
+   script: scriptinfo - for a gendoc-documented script, print concise info
+     type: bash
+   author: Wybo Dekker
+    email: wybo@dekkerdocumenten.nl
+  version: 1.08
+  license: GNU General Public License v3.0
+  --------------------------------------------------------------------------------
+  For a script with |gendoc| documentation, scriptinfo prints the script's
+  short description, type, author, authors email, version, license and intro.
+
+Without the |--nocolor| option some keywords will be ANSI colored.
+
+With the |--brief| option, exactly 3 lines are output, one for each
+of short description, type, version. This is the output used by the
+/instscript/ and /gendoc/ scripts. For scriptinfo itself it looks
+like this:
+
+  for a gendoc-documented script, print concise info
+  bash
+  1.08
+
+With the |--markdown| option, a markdown version is produced, which is
+useful as a README file for github uploads. This option disables the
+|--brief| option and sets the |--nocolor| option. The output for scriptinfo
+itself is:
+
+  # scriptinfo
+  |     key | description
+  |     ---:|:---
+  |  script | scriptinfo - for a gendoc-documented script, print concise info
+  |    type | bash
+  |  author | Wybo Dekker
+  |   email | wybo@dekkerdocumenten.nl
+  | version | 1.08
+  | license | GNU General Public License
+
+  For a script with gendoc documentation, scriptinfo prints the script's
+  short description, type, author, authors email, version, license and intro.
+
+
+The |--options| option is useful when writing the documentation for a shell
+script. When the option handler contains lines like this:
+
+   (-o|--option)	# this option does nothing
+
+then the command:
+   scriptinfo -o script
+will generate lines like this:
+
+-o,--option	this option does nothing
+
+which can be inserted in the documentation. When you are editing the
+script with vim, you can insert such lines by giving the ex-command:
+
+  :r!scriptinfo -o %
+
+= C binaries
+My C binaries are compiled from bash scripts that copy their /gendoc/
+documentation into the C-source as text for the -h option; by inserting a
+newline before the text it is ensured that all lines can be grepped from
+the binary. The version information is not in these lines: it is obtained
+by running the binary with the |-V| option, which must have been
+programmed, of course.
+
+= Author
+[Wybo Dekker](wybo@dekkerdocumenten.nl)
+
+= Copyright
+Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
+DOC
+
+REd='[38;5;9m'
+Nor='[0m'
+YeL='[1;38;5;3m'
+BlU='[1;38;5;4m'
+    die() { local i
+	    for i; do
+		echo -e "$Myname: $REd$i"
+	    done 1>&2
+	    exit 1
+	  }
+helpsrt() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1d;$d'; exit; }
+
+# shellcheck disable=SC2154
+helpall() { sed -n "/^:\?<<'DOC'$/,/^DOC/p" "$0"|sed -n '1d;$d;p'|
+            less -Ps"$Myname-${Version/./·} documentation - type h for help, q to quit."
+		exit
+	  }
+nocolor() { REd='' Nor='' YeL='' BlU=''; }
+
+if ! options=$(getopt \
+   -n "$Myname" \
+   -o hHVIbnom \
+   -l help,Help,version,brief,nocolor,markdown,options \
+   -- "$@"
+); then exit 1; fi
+eval set -- "$options"
+brief=false
+markdown=false
+listoptions=false
+while [ $# -gt 0 ]; do
+   case $1 in
+   (-h|--help)     # print short help and exit
+                   helpsrt
+                   ;;
+   (-H|--Help)     # print full documentation and exit
+                   helpall
+                   ;;
+   (-V|--version)  # print version and exit
+                   echo $Version
+		   exit
+                   ;;
+   (-b|--brief)    # print brief output for usage in scripts
+                   brief=true
+                   shift
+                   ;;
+   (-n|--nocolor)  # print without ANSI coloring sequences
+                   nocolor
+                   shift
+                   ;;
+   (-m|--markdown) # use markdown for github-compatible output
+                   markdown=true
+                   shift
+                   ;;
+   (-o|--options)  # list the options and exits
+                   listoptions=true
+                   shift
+                   ;;
+   (-I)		   instscript "$0" ||
+		      die 'the -I option is for developers only'
+		   exit
+		   ;;
+   (--)            shift
+                   break
+                   ;;
+   (*)             break
+                   ;;
+   esac
+done
+
+script="$1"
+test -z "$script" && die "I need a script name"
+if [[ ! -f $script ]]; then
+   if [[ $script =~ / ]]; then
+      [[ -e $script ]] || die "$script: does not exist"
+      [[ -f $script ]] || die "$script: not a regular file"
+   else
+      script=$(command -v "$1")
+      [[ -z $script ]] && die "$1: not found here, nor in PATH"
+   fi
+fi
+if [[ -L $script ]]; then
+   script=$(readlink -f "$script")
+fi
+
+if $listoptions; then
+   while IFS= read -r line; do
+      # skip DOC:
+      if [[ $line =~ ^:\<\<\'DOC\' ]]; then
+         while read -r line; do
+            [[ $line = DOC ]] && break
+         done
+      fi
+      # find getopt entries:
+      if [[ $line =~ ^[[:space:]]+\((.*--[A-Za-z]+)\)[[:space:]]+#\ (.*) ]]; then
+         echo -e "${BASH_REMATCH[1]}\t${BASH_REMATCH[2]}"
+         while IFS= read -r line; do
+            [[ $line =~ ^[[:space:]]+#\ (.*) ]] || break
+            echo -e "\t\t${BASH_REMATCH[1]}"
+         done
+      fi
+   done <"$script"
+   exit
+fi
+
+scriptversion='' type='' short='' n=0 scriptname=${script##*/} intro=''
+author='' email='' license='' indoc=false
+while read -r line; do
+   # type
+   [[ $((n++)) = 0 &&
+      $line =~ (bash|ruby|perl|python|sh|C) ]] &&
+      type=${BASH_REMATCH[1]}
+   if $indoc; then
+      # end of DOC?
+      [[ $line =~ ^DOC ]] && break
+      # short description
+      if [[ -z $short && $line =~ ^=\ $scriptname\ -\ (.*) ]]; then
+         short=${BASH_REMATCH[1]}
+      fi
+      # intro: first paragraph after Description header
+      [[ $line =~ ^=\ Description ]] && {
+         while read -r line; do
+            if [ -n "$line" ]; then
+               intro+="$line\n"
+            else
+               intro=${intro::-2} # remove last \n
+               break
+            fi
+         done
+      }
+      # author, email, license:
+      if [[ $line =~ ^=\ Author ]]; then
+         read -r line
+         if [[ $line =~ \[(.*)\]\((.*)\) ]]; then
+            author=${BASH_REMATCH[1]}
+            email=${BASH_REMATCH[2]}
+         fi
+      fi
+      # license:
+      if [[ $line =~ ^=\ Copyright ]]; then
+         read -r line
+         if [[ $line =~ \[(.*)\] ]]; then
+            license=${BASH_REMATCH[1]}
+         fi
+      fi
+   else
+      # start of DOC?
+      [[ $line =~ ^:?\<\<\'DOC\' ]] && indoc=true
+      # version: use first match
+      shopt -s nocasematch
+      if [[ -z $scriptversion &&
+         $line =~ ^[[:space:]]*\$?version[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]]; then
+         scriptversion=${BASH_REMATCH[1]}
+      fi
+      shopt -u nocasematch
+   fi
+done < <(
+   if [[ $(file --mime "$script") =~ binary$ ]]; then
+      echo '#!/bin/C'
+      v=$($script -V) || die "$script does not respond to -V option"
+      echo version="$v"
+      echo ":<<'DOC'"
+      $script -H || die "$script does not respond to -H option"
+      echo DOC
+   else
+      sed -e "s/#[^!].*//" "$script"
+   fi
+)
+
+if [ $markdown = true ]; then
+   nocolor
+   brief=false
+   intro="${intro//|/}"
+   head="# ${script##*/}\n|     key | description\n|     ---:|:---"
+   s=' |' # column separator
+   l=''   # paragraph separator
+   f='| '
+else
+   s="$Nor:"
+   head=
+   l="---"
+   f=''
+fi
+
+unk='<??>'
+if $brief; then
+   echo "${short:-$unk}"
+   echo "${type:-$unk}"
+   echo "${scriptversion:-$unk}"
+else
+   sedscript="s/\<$scriptname\>/${YeL}&$Nor/g;s/|\([^][^|]*\)|/$BlU\1$Nor/g"
+   test -z "$head" || echo -e "$head"
+   echo -e "$f${BlU} script$s $YeL$scriptname$Nor - ${short:-$unk}"
+   echo -e "$f${BlU}   type$s ${type:-$unk}"
+   echo -e "$f${BlU} author$s ${author:-$unk}"
+   echo -e "$f${BlU}  email$s ${email:-$unk}"
+   echo -e "$f${BlU}version$s ${scriptversion:-$unk}"
+   echo -e "$f${BlU}license$s ${license:-$unk}"
+   echo $l
+   echo -e "${intro:-$unk}" | sed -e "$sedscript"
+fi
