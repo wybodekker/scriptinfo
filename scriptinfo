@@ -119,77 +119,86 @@ programmed, of course.
 Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
 DOC
 
-REd='[38;5;9m'
-Nor='[0m'
-YeL='[1;38;5;3m'
-BlU='[1;38;5;4m'
-    die() { local i
-	    for i; do
-		echo -e "$Myname: $REd$i"
-	    done 1>&2
-	    exit 1
-	  }
+REd='[38;5;9m' Nor='[0m' YeL='[1;38;5;3m' BlU='[1;38;5;4m'
+    die() { local i; for i; do echo -e "$Myname: $REd$i$Nor"; done 1>&2; exit 1; }
 helpsrt() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1d;$d'; exit; }
-
-# shellcheck disable=SC2154
-helpall() { sed -n "/^:\?<<'DOC'$/,/^DOC/p" "$0"|sed -n '1d;$d;p'|
+helpall() { sed -n "/^:<<'DOC'$/,/^DOC/p" "$0"|sed -n '1d;$d;p'|
             less -Ps"$Myname-${Version/./·} documentation - type h for help, q to quit."
 		exit
 	  }
+
 nocolor() { REd='' Nor='' YeL='' BlU=''; }
 
-if ! options=$(getopt \
-   -n "$Myname" \
-   -o hHVIbnom \
-   -l help,Help,version,brief,nocolor,markdown,options \
-   -- "$@"
-); then exit 1; fi
-eval set -- "$options"
-brief=false
-markdown=false
-listoptions=false
-while [ $# -gt 0 ]; do
-   case $1 in
-   (-h|--help)     # print short help and exit
-                   helpsrt
-                   ;;
-   (-H|--Help)     # print full documentation and exit
-                   helpall
-                   ;;
-   (-V|--version)  # print version and exit
-                   echo $Version
-		   exit
-                   ;;
-   (-b|--brief)    # print brief output for usage in scripts
-                   brief=true
-                   shift
-                   ;;
-   (-n|--nocolor)  # print without ANSI coloring sequences
-                   nocolor
-                   shift
-                   ;;
-   (-m|--markdown) # use markdown for github-compatible output
-                   markdown=true
-                   shift
-                   ;;
-   (-o|--options)  # list the options and exits
-                   listoptions=true
-                   shift
-                   ;;
-   (-I)		   instscript "$0" ||
-		      die 'the -I option is for developers only'
-		   exit
-		   ;;
-   (--)            shift
-                   break
-                   ;;
-   (*)             break
-                   ;;
-   esac
-done
+getopt -T
+test $? -ne 4 && die "Your getopt is not GNU"
+
+:<<'DOC' #----------------------------------------------------------------------
+= handle_options
+synopsis:	 handle_options "$@"
+description:	handle the options.
+globals used:	 Myname Version
+globals  set:	 args brief markdown listoptions
+DOC
+#-------------------------------------------------------------------------------
+handle_options() {
+   local options
+   if ! options=$(getopt \
+      -n "$Myname" \
+      -o hHVIbnom \
+      -l help,Help,version,brief,nocolor,markdown,options \
+      -- "$@"
+   ); then exit 1; fi
+   eval set -- "$options"
+   brief=false
+   markdown=false
+   listoptions=false
+   while [ $# -gt 0 ]; do
+      case $1 in
+      (-h|--help)     # print short help and exit
+                      helpsrt
+                      ;;
+      (-H|--Help)     # print full documentation and exit
+                      helpall
+                      ;;
+      (-V|--version)  # print version and exit
+                      echo $Version
+   		      exit
+                      ;;
+      (-b|--brief)    # print brief output for usage in scripts
+                      brief=true
+                      shift
+                      ;;
+      (-n|--nocolor)  # print without ANSI coloring sequences
+                      nocolor
+                      shift
+                      ;;
+      (-m|--markdown) # use markdown for github-compatible output
+                      markdown=true
+                      shift
+                      ;;
+      (-o|--options)  # list the options and exits
+                      listoptions=true
+                      shift
+                      ;;
+      (-I)	      instscript "$0" ||
+   		         die 'the -I option is for developers only'
+   		      exit
+   		      ;;
+      (--)            shift
+                      break
+                      ;;
+      (*)             break
+                      ;;
+      esac
+   done
+   args=( "$@" )
+   return ${#args}
+}
+
+handle_options "$@" || set "${args[@]}"
+test $# -eq 1 || die "I need 1 input file"
 
 script="$1"
-test -z "$script" && die "I need a script name"
 if [[ ! -f $script ]]; then
    if [[ $script =~ / ]]; then
       [[ -e $script ]] || die "$script: does not exist"
@@ -316,6 +325,6 @@ else
    echo -e "$f${BlU}  email$s ${email:-$unk}"
    echo -e "$f${BlU}version$s ${scriptversion:-$unk}"
    echo -e "$f${BlU}license$s ${license:-$unk}"
-   echo $l
-   echo -e "${intro:-$unk}" | sed -e "$sedscript"
+   echo -e "$l"
+   echo -e "${intro:-$unk}" | sed "$sedscript"
 fi
