@@ -192,10 +192,11 @@ handle_options() {
       esac
    done
    args=( "$@" )
-   return ${#args}
 }
 
-handle_options "$@" || set "${args[@]}"
+handle_options "$@"
+set -- "${args[@]}"
+
 test $# -eq 1 || die "I need 1 input file"
 
 script="$1"
