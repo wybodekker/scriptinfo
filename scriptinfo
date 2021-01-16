@@ -122,10 +122,8 @@ DOC
 REd='[38;5;9m' Nor='[0m' YeL='[1;38;5;3m' BlU='[1;38;5;4m'
     die() { local i; for i; do echo -e "$Myname: $REd$i$Nor"; done 1>&2; exit 1; }
 helpsrt() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1d;$d'; exit; }
-helpall() { sed -n "/^:<<'DOC'$/,/^DOC/p" "$0"|sed -n '1d;$d;p'|
-            less -Ps"$Myname-${Version/./·} documentation - type h for help, q to quit."
-		exit
-	  }
+helpall() { sed -n "/^:<<'DOC'$/,/^DOC/p" "$0"|sed '1d;$d'|
+            less -P"$Myname-${Version/./·} (press h for help, q to quit)";exit; }
 
 nocolor() { REd='' Nor='' YeL='' BlU=''; }
 
