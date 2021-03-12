@@ -221,7 +221,8 @@ listopts() {
          elif [[ $l =~ ^[[:space:]]+\((.*--[A-Za-z=]+)\) ]]; then
             w+=("missing comment for ${BASH_REMATCH[1]}")
          fi
-      done < <(expand "$script" |
+      done < <( # shellcheck disable=SC2016
+		expand "$script" |
 		sed -ne '1,/=$(getopt/d' \
 		-e '1,/case/d' \
 		-e '/(-I)/,$d;p'
