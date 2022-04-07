@@ -204,22 +204,26 @@ globals  set:
 DOC
 #-------------------------------------------------------------------------------
 listopts() {
-   local l ll s w=()
+   local i j l ll s e=() w='[a-zA-Z0-9=]' s='[[:space:]]' d='[[:digit:]]'
    if [[ $type == bash ]]; then
       while IFS= read -r l; do
          # subheading?
-         if [[ $l =~ ^[[:space:]]*\#\ (.*) ]]; then
+         if [[ $l =~ ^$s*\#\ (.*) ]]; then
             echo -e "\n== ${BASH_REMATCH[1]}\n"
          # find getopt entries with comment:
-         elif [[ $l =~ ^[[:space:]]+\((.*--[A-Za-z=]+)\)[[:space:]]+#\ (.*) ]]; then
-            echo -e "${BASH_REMATCH[1]}\t${BASH_REMATCH[2]}"
+         elif [[ $l =~ ^$s+\((-$w\|--$w$w+|-$w|--$w$w+)\)$s*#$s(.*) ]]; then
+            i="${BASH_REMATCH[1]}"
+            j="${BASH_REMATCH[2]}"
+            [[ $i =~ -- ]] || i+='\t'
+            [[ $i =~ ^-- ]] && i="   $i"
+            echo -e "$i\t$j"
             while IFS= read -r ll; do
-               [[ $ll =~ ^[[:space:]]+#\ (.*) ]] || break
+               [[ $ll =~ ^$s+#\ (.*) ]] || break
                echo -e "\t\t${BASH_REMATCH[1]}"
             done
          # find getopt entries without comment:
-         elif [[ $l =~ ^[[:space:]]+\((.*--[A-Za-z=]+)\) ]]; then
-            w+=("missing comment for ${BASH_REMATCH[1]}")
+         elif [[ $l =~ ^$s+\((.*--$w+)\) ]]; then
+            e+=("missing comment for ${BASH_REMATCH[1]}")
          fi
       done < <( # shellcheck disable=SC2016
 		expand "$script" |
@@ -227,9 +231,9 @@ listopts() {
 		-e '1,/case/d' \
 		-e '/(-I)/,$d;p'
 		)
-      if (( ${#w[@]} > 0 )); then
+      if (( ${#e[@]} > 0 )); then
          echo
-         Warn "${w[@]}" |unexpand -a
+         Warn "${e[@]}" |unexpand -a
       fi
    else
       # the ruby and python option parsers have it all built-in:
@@ -306,7 +310,7 @@ while read -r line; do
       # version: use first match
       shopt -s nocasematch
       if [[ -z $scriptversion &&
-         $line =~ ^[[:space:]]*\$?version[[:space:]]*=\>?[[:space:]]*[\"\']?([[:digit:]]+\.[[:digit:]]+[a-z]*) ]]; then
+         $line =~ ^$s*\$?version$s*=\>?$s*[\"\']?($d+\.$d+[a-z]*) ]]; then
          scriptversion=${BASH_REMATCH[1]}
       fi
       shopt -u nocasematch
