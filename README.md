@@ -5,7 +5,7 @@
 |    type | bash
 |  author | Wybo Dekker
 |   email | wybo@dekkerdocumenten.nl
-| version | 1.09
+| version | 1.10
 | license | GNU General Public License
 
 For a script with gendoc documentation, scriptinfo prints the script's
