@@ -15,7 +15,7 @@ scriptinfo [options] scriptname
 -V|--version	print version and exit
 -b|--brief	print brief output for usage in scripts
 -n|--nocolor	print without ANSI coloring sequences
--m|--markdown	use markdown for bitbucket-compatible output
+-m|--markdown	use markdown for github-compatible output
 -o|--options	list the options and exits
 
 = Description
@@ -53,7 +53,7 @@ format, which for scriptinfo itself is like this:
    author: Wybo Dekker
     email: wybo@dekkerdocumenten.nl
   version: 1.08
-  license: GNU General Public License
+  license: GNU General Public License v3.0
   --------------------------------------------------------------------------------
   For a script with |gendoc| documentation, scriptinfo prints the script's
   short description, type, author, authors email, version, license and intro.
@@ -119,77 +119,130 @@ programmed, of course.
 Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
 DOC
 
-REd='[38;5;9m'
-Nor='[0m'
-YeL='[1;38;5;3m'
-BlU='[1;38;5;4m'
-    die() { local i
-	    for i; do
-		echo -e "$Myname: $REd$i"
-	    done 1>&2
-	    exit 1
-	  }
+REd='[38;5;9m' Nor='[0m' Mag='\e[38;5;5m' YeL='[1;38;5;3m' BlU='[1;38;5;4m'
+    die() { local i; for i; do echo -e "$Myname: $REd$i$Nor"; done 1>&2; exit 1; }
+   Warn() { local i; for i; do echo -e "$Myname: $Mag$i$Nor"; done 1>&2; }
 helpsrt() { sed -n '/^= Synopsis/,/^= /p' "$0"|sed '1d;$d'; exit; }
+helpall() { sed -n "/^:<<'DOC'$/,/^DOC/p" "$0"|sed '1d;$d'|
+            less -P"$Myname-${Version/./·} (press h for help, q to quit)";exit; }
 
-# shellcheck disable=SC2154
-helpall() { sed -n "/^:\?<<'DOC'$/,/^DOC/p" "$0"|sed -n '1d;$d;p'|
-            less -Ps"$Myname-${Version/./·} documentation - type h for help, q to quit."
-		exit
-	  }
 nocolor() { REd='' Nor='' YeL='' BlU=''; }
 
-if ! options=$(getopt \
-   -n "$Myname" \
-   -o hHVIbnom \
-   -l help,Help,version,brief,nocolor,markdown,options \
-   -- "$@"
-); then exit 1; fi
-eval set -- "$options"
-brief=false
-markdown=false
-listoptions=false
-while [ $# -gt 0 ]; do
-   case $1 in
-   (-h|--help)     # print short help and exit
-                   helpsrt
-                   ;;
-   (-H|--Help)     # print full documentation and exit
-                   helpall
-                   ;;
-   (-V|--version)  # print version and exit
-                   echo $Version
-		   exit
-                   ;;
-   (-b|--brief)    # print brief output for usage in scripts
-                   brief=true
-                   shift
-                   ;;
-   (-n|--nocolor)  # print without ANSI coloring sequences
-                   nocolor
-                   shift
-                   ;;
-   (-m|--markdown) # use markdown for bitbucket-compatible output
-                   markdown=true
-                   shift
-                   ;;
-   (-o|--options)  # list the options and exits
-                   listoptions=true
-                   shift
-                   ;;
-   (-I)		   instscript "$0" ||
-		      die 'the -I option is for developers only'
-		   exit
-		   ;;
-   (--)            shift
-                   break
-                   ;;
-   (*)             break
-                   ;;
-   esac
-done
+getopt -T
+test $? -ne 4 && die "Your getopt is not GNU"
+
+:<<'DOC' #----------------------------------------------------------------------
+= handle_options
+synopsis:	 handle_options "$@"
+description:	handle the options.
+globals used:	 Myname Version
+globals  set:	 args brief markdown listoptions
+DOC
+#-------------------------------------------------------------------------------
+handle_options() {
+   local options
+   options=$(getopt \
+      -n "$Myname" \
+      -o hHVIbnom \
+      -l help,Help,version,brief,nocolor,markdown,options \
+      -- "$@"
+   ) || exit 1
+   eval set -- "$options"
+   brief=false
+   markdown=false
+   listoptions=false
+   while [ $# -gt 0 ]; do
+      case $1 in
+      (-h|--help)	# print short help and exit
+			helpsrt
+			;;
+      (-H|--Help)	# print full documentation and exit
+			helpall
+			;;
+      (-V|--version)	# print version and exit
+			echo $Version
+			exit
+			;;
+      (-b|--brief)	# print brief output for usage in scripts
+			brief=true
+			shift
+			;;
+      (-n|--nocolor)	# print without ANSI coloring sequences
+			nocolor
+			shift
+			;;
+      (-m|--markdown)	# use markdown for github-compatible output
+			markdown=true
+			shift
+			;;
+      (-o|--options)	# list the options and exits
+			listoptions=true
+			shift
+			;;
+      (-I)		instscript "$0" ||
+			   die 'the -I option is for developers only'
+			exit
+			;;
+      (--)		shift
+			break
+			;;
+      (*)		break
+			;;
+      esac
+   done
+   args=( "$@" )
+}
+
+:<<'DOC' #----------------------------------------------------------------------
+= listopts
+synopsis:	 listopts script
+description:	list the options of the script, like its |-h| option would.
+		For a Bash script, its option handler analyzed.
+		Ruby's option handler, used by the scripts -h option.
+globals used:	 script
+globals  set:	 
+DOC
+#-------------------------------------------------------------------------------
+listopts() {
+   local l ll s w=()
+   if [[ $type == bash ]]; then
+      while IFS= read -r l; do
+         # subheading?
+         if [[ $l =~ ^[[:space:]]*\#\ (.*) ]]; then
+            echo -e "\n== ${BASH_REMATCH[1]}\n"
+         # find getopt entries with comment:
+         elif [[ $l =~ ^[[:space:]]+\((.*--[A-Za-z=]+)\)[[:space:]]+#\ (.*) ]]; then
+            echo -e "${BASH_REMATCH[1]}\t${BASH_REMATCH[2]}"
+            while IFS= read -r ll; do
+               [[ $ll =~ ^[[:space:]]+#\ (.*) ]] || break
+               echo -e "\t\t${BASH_REMATCH[1]}"
+            done
+         # find getopt entries without comment:
+         elif [[ $l =~ ^[[:space:]]+\((.*--[A-Za-z=]+)\) ]]; then
+            w+=("missing comment for ${BASH_REMATCH[1]}")
+         fi
+      done < <( # shellcheck disable=SC2016
+		expand "$script" |
+		sed -ne '1,/=$(getopt/d' \
+		-e '1,/case/d' \
+		-e '/(-I)/,$d;p'
+		)
+      if (( ${#w[@]} > 0 )); then
+         echo
+         Warn "${w[@]}" |unexpand -a
+      fi
+   else
+      # the ruby and python option parsers have it all built-in:
+      $script -h
+   fi |unexpand -a
+}    
+
+handle_options "$@"
+set -- "${args[@]}"
+
+test $# -eq 1 || die "I need 1 input file"
 
 script="$1"
-test -z "$script" && die "I need a script name"
 if [[ ! -f $script ]]; then
    if [[ $script =~ / ]]; then
       [[ -e $script ]] || die "$script: does not exist"
@@ -203,33 +256,17 @@ if [[ -L $script ]]; then
    script=$(readlink -f "$script")
 fi
 
-if $listoptions; then
-   while IFS= read -r line; do
-      # skip DOC:
-      if [[ $line =~ ^:\<\<\'DOC\' ]]; then
-         while read -r line; do
-            [[ $line = DOC ]] && break
-         done
-      fi
-      # find getopt entries:
-      if [[ $line =~ ^[[:space:]]+\((.*--[A-Za-z]+)\)[[:space:]]+#\ (.*) ]]; then
-         echo -e "${BASH_REMATCH[1]}\t${BASH_REMATCH[2]}"
-         while IFS= read -r line; do
-            [[ $line =~ ^[[:space:]]+#\ (.*) ]] || break
-            echo -e "\t\t${BASH_REMATCH[1]}"
-         done
-      fi
-   done <"$script"
-   exit
-fi
-
 scriptversion='' type='' short='' n=0 scriptname=${script##*/} intro=''
 author='' email='' license='' indoc=false
 while read -r line; do
    # type
-   [[ $((n++)) = 0 &&
-      $line =~ (bash|ruby|perl|python|sh|C) ]] &&
+   if (( n++ == 0 )) && [[ $line =~ (bash|ruby|perl|python|sh|C) ]]; then
       type=${BASH_REMATCH[1]}
+      if $listoptions; then
+         listopts
+         exit 
+      fi
+   fi
    if $indoc; then
       # end of DOC?
       [[ $line =~ ^DOC ]] && break
@@ -291,7 +328,7 @@ if [ $markdown = true ]; then
    nocolor
    brief=false
    intro="${intro//|/}"
-   head="# $Myname\n|     key | description\n|     ---:|:---"
+   head="# ${script##*/}\n|     key | description\n|     ---:|:---"
    s=' |' # column separator
    l=''   # paragraph separator
    f='| '
@@ -316,6 +353,6 @@ else
    echo -e "$f${BlU}  email$s ${email:-$unk}"
    echo -e "$f${BlU}version$s ${scriptversion:-$unk}"
    echo -e "$f${BlU}license$s ${license:-$unk}"
-   echo $l
-   echo -e "${intro:-$unk}" | sed -e "$sedscript"
+   echo -e "$l"
+   echo -e "${intro:-$unk}" | sed "$sedscript"
 fi
