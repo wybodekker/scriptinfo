@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Version=1.09
+Version=1.10
 Myname="${0##*/}"
 
 :<<'DOC'
@@ -89,18 +89,24 @@ itself is:
 
 
 The |--options| option is useful when writing the documentation for a shell
-script. When the option handler contains lines like this:
+script. When the option handler contains lines like these:
 
-   (-o|--option)	# this option does nothing
+   (-n|--nothing)	# this option does nothing
+   (-o|--output)	# set output file name to X
 
 then the command:
    scriptinfo -o script
 will generate lines like this:
 
--o,--option	this option does nothing
+-n,--nothing	# this option does nothing
+-o,--output=X	# set output file name to X
 
-which can be inserted in the documentation. When you are editing the
-script with vim, you can insert such lines by giving the ex-command:
+which can be inserted in the documentation. Note that the single character X, 
+when it occurs in the comment line(s), is considered to be an argument of the 
+option.
+
+When you are editing the script with vim, you can insert such lines by
+giving the ex-command:
 
   :r!scriptinfo -o %
 
@@ -117,6 +123,9 @@ programmed, of course.
 
 = Copyright
 Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
+
+= See also
+gendoc(1), instscript(1)
 DOC
 
 REd='[38;5;9m' Nor='[0m' Mag='\e[38;5;5m' YeL='[1;38;5;3m' BlU='[1;38;5;4m'
@@ -199,12 +208,12 @@ synopsis:	 listopts script
 description:	list the options of the script, like its |-h| option would.
 		For a Bash script, its option handler analyzed.
 		Ruby's option handler, used by the scripts -h option.
-globals used:	 script
+globals used:	 script s d w type
 globals  set:	 
 DOC
 #-------------------------------------------------------------------------------
 listopts() {
-   local i j l ll s e=() w='[a-zA-Z0-9=]' s='[[:space:]]' d='[[:digit:]]'
+   local i j l ll e=()
    if [[ $type == bash ]]; then
       while IFS= read -r l; do
          # subheading?
@@ -216,11 +225,12 @@ listopts() {
             j="${BASH_REMATCH[2]}"
             [[ $i =~ -- ]] || i+='\t'
             [[ $i =~ ^-- ]] && i="   $i"
-            echo -e "$i\t$j"
             while IFS= read -r ll; do
                [[ $ll =~ ^$s+#\ (.*) ]] || break
-               echo -e "\t\t${BASH_REMATCH[1]}"
+               j+="\n\t\t${BASH_REMATCH[1]}"
             done
+            [[ $j =~ (^|[[:space:]])X([$|[[:space:]]) ]] && i+==X
+            echo -e "$i\t$j"
          # find getopt entries without comment:
          elif [[ $l =~ ^$s+\((.*--$w+)\) ]]; then
             e+=("missing comment for ${BASH_REMATCH[1]}")
@@ -240,7 +250,7 @@ listopts() {
       $script -h
    fi |unexpand -a
 }    
-
+w='[a-zA-Z0-9=]' s='[[:space:]]' d='[[:digit:]]'
 handle_options "$@"
 set -- "${args[@]}"
 
