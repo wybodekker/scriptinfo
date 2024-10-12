@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Version=1.10
+Version=1.11
 Myname="${0##*/}"
 
 :<<'DOC'
@@ -270,12 +270,13 @@ if [[ -L $script ]]; then
    script=$(readlink -f "$script")
 fi
 
-scriptversion='' type='' short='' n=0 scriptname=${script##*/} intro=''
+scriptversion='' type='<??>' short='' n=0 scriptname=${script##*/} intro=''
 author='' email='' license='' indoc=false
 while read -r line; do
    # type
-   if (( n++ == 0 )) && [[ $line =~ (bash|ruby|perl|python|sh|C) ]]; then
-      type=${BASH_REMATCH[1]}
+   if (( n++ == 0 )) && [[ $line =~ \#!(.*) ]]; then
+      type=${BASH_REMATCH[1]##*/}
+      type=${type#env }
       if $listoptions; then
          listopts
          exit 
