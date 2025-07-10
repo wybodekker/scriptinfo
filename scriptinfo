@@ -51,7 +51,7 @@ format, which for scriptinfo itself is like this:
    script: scriptinfo - for a gendoc-documented script, print concise info
      type: bash
    author: Wybo Dekker
-    email: wybo@dekkerdocumenten.nl
+    email: wybodekker@me.com
   version: 1.08
   license: GNU General Public License v3.0
   --------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ itself is:
   |  script | scriptinfo - for a gendoc-documented script, print concise info
   |    type | bash
   |  author | Wybo Dekker
-  |   email | wybo@dekkerdocumenten.nl
+  |   email | wybodekker@me.com
   | version | 1.08
   | license | GNU General Public License
 
@@ -119,7 +119,7 @@ by running the binary with the |-V| option, which must have been
 programmed, of course.
 
 = Author
-[Wybo Dekker](wybo@dekkerdocumenten.nl)
+[Wybo Dekker](wybodekker@me.com)
 
 = Copyright
 Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
